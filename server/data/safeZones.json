@@ -1,0 +1,46 @@
+[
+  {
+    "id": "sz-1",
+    "name": "Women Help Desk - Safdarjung Police Station",
+    "type": "Police Station",
+    "helpline": "1091",
+    "lat": 28.5480,
+    "lng": 77.1950,
+    "lightingRating": "High (5/5)",
+    "is24x7": true,
+    "address": "Safdarjung Enclave, New Delhi"
+  },
+  {
+    "id": "sz-2",
+    "name": "NSS Emergency Assistance Booth #4",
+    "type": "NSS Booth",
+    "helpline": "+91 11 2659 1000",
+    "lat": 28.5440,
+    "lng": 77.1910,
+    "lightingRating": "High (5/5)",
+    "is24x7": true,
+    "address": "IIT Main Gate Bus Stop, New Delhi"
+  },
+  {
+    "id": "sz-3",
+    "name": "AIIMS Trauma Centre & Safe Haven",
+    "type": "Hospital & Safe Zone",
+    "helpline": "112",
+    "lat": 28.5670,
+    "lng": 77.2100,
+    "lightingRating": "High (5/5)",
+    "is24x7": true,
+    "address": "Ring Road, Safdarjung, New Delhi"
+  },
+  {
+    "id": "sz-4",
+    "name": "Hauz Khas Metro Women Assistance Desk",
+    "type": "Metro Station Desk",
+    "helpline": "155370",
+    "lat": 28.5430,
+    "lng": 77.2060,
+    "lightingRating": "High (5/5)",
+    "is24x7": true,
+    "address": "Hauz Khas Metro Station Gate 2"
+  }
+]
