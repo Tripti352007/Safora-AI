@@ -1,0 +1,91 @@
+{
+  "contacts": [
+    {
+      "id": "c101",
+      "userId": "user-default",
+      "name": "Family Emergency Contact",
+      "relation": "Parent",
+      "phone": "+91 98765 43210",
+      "isPrimary": true
+    }
+  ],
+  "journeys": [],
+  "emergency_logs": [],
+  "volunteers": [
+    {
+      "id": "vol-101",
+      "name": "Priya Sharma",
+      "organization": "NSS IIT Delhi Unit",
+      "role": "NSS Senior Safety Lead",
+      "type": "NSS",
+      "phone": "+91 98765 43210",
+      "rating": 4.9,
+      "verifications": ["Aadhaar Verified", "NSS Lead Badge", "Self-Defense Instructor"],
+      "status": "Active / On Duty",
+      "baseLat": 28.5457,
+      "baseLng": 77.1928,
+      "address": "Hauz Khas Enclave, New Delhi",
+      "avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
+    },
+    {
+      "id": "vol-102",
+      "name": "Rahul Verma",
+      "organization": "Stree Raksha NGO",
+      "role": "Community Night Patrol Volunteer",
+      "type": "NGO",
+      "phone": "+91 98123 45678",
+      "rating": 4.85,
+      "verifications": ["Police Verified", "First Aid Certified"],
+      "status": "Active / On Duty",
+      "baseLat": 28.5490,
+      "baseLng": 77.1980,
+      "address": "Green Park Main Market, New Delhi",
+      "avatar": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+    },
+    {
+      "id": "vol-103",
+      "name": "Ananya Roy",
+      "organization": "NSS Women Safety Cell",
+      "role": "Campus & Transit Companion",
+      "type": "NSS",
+      "phone": "+91 97111 22334",
+      "rating": 5.0,
+      "verifications": ["NSS Gold Badge", "Emergency Medical Responder"],
+      "status": "Active / On Duty",
+      "baseLat": 28.5410,
+      "baseLng": 77.1890,
+      "address": "IIT Flyover Bus Stop, New Delhi",
+      "avatar": "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80"
+    },
+    {
+      "id": "vol-104",
+      "name": "Vikram Singh",
+      "organization": "Jan Seva Volunteer Network",
+      "role": "Night Escort & Quick Response Lead",
+      "type": "NGO",
+      "phone": "+91 99998 88776",
+      "rating": 4.92,
+      "verifications": ["Ex-Defense Volunteer", "Aadhaar Verified"],
+      "status": "On Standby",
+      "baseLat": 28.5520,
+      "baseLng": 77.2050,
+      "address": "Safdarjung Enclave, New Delhi",
+      "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+    },
+    {
+      "id": "vol-105",
+      "name": "Meera Patel",
+      "organization": "Elder Care Support NGO",
+      "role": "Senior Citizen Companion & Nurse",
+      "type": "NGO",
+      "phone": "+91 98990 11223",
+      "rating": 4.95,
+      "verifications": ["Nurse Certified", "Elder Care Lead"],
+      "status": "Active / On Duty",
+      "baseLat": 28.5380,
+      "baseLng": 77.1950,
+      "address": "Adchini Village Gate, New Delhi",
+      "avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80"
+    }
+  ]
+}

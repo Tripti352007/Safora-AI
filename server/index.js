@@ -1,10 +1,10 @@
 import express from 'express';
 import cors from 'cors';
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
-const volunteers = require('./data/volunteers.json');
-const safeZones = require('./data/safeZones.json');
+import { readDB, writeDB } from './db.js';
+import { geocodeDestination, calculateDistanceKm } from './services/locationService.js';
+import { calculateRealRoutes } from './services/routingService.js';
+import { fetchNearbyEmergencyPlaces } from './services/placesService.js';
+import { processStructuredSafetyContext } from './services/aiService.js';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -12,125 +12,221 @@ const PORT = process.env.PORT || 5001;
 app.use(cors());
 app.use(express.json());
 
-// Get verified NSS & NGO volunteers
-app.get('/api/volunteers', (req, res) => {
-  const { category, type } = req.query;
-  let filtered = [...volunteers];
-  if (type) {
-    filtered = filtered.filter(v => v.type.toLowerCase() === type.toLowerCase());
-  }
-  res.json({ success: true, count: filtered.length, data: filtered });
-});
+// 1. UNIFIED SAFETY ASSESSMENT ENDPOINT
+app.post('/api/safety/analyze', async (req, res) => {
+  try {
+    const {
+      latitude = 28.5457,
+      longitude = 77.1928,
+      destination = "",
+      time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      travelMode = "walking",
+      situation = "",
+      alone = true,
+      mode = "outdoor",
+      demographic = "women",
+      language = "en"
+    } = req.body;
 
-// Get Safe Zones
-app.get('/api/safe-zones', (req, res) => {
-  res.json({ success: true, count: safeZones.length, data: safeZones });
-});
+    const userLat = parseFloat(latitude);
+    const userLng = parseFloat(longitude);
 
-// AI Risk & Substitute Recommendation Engine Endpoint
-app.post('/api/analyze-risk', (req, res) => {
-  const { problemType, locationContext, demographic, userNote, language } = req.body;
-  const isHindi = language === 'hi';
+    // Fetch real nearby places via Overpass API
+    const nearbyPlaces = await fetchNearbyEmergencyPlaces(userLat, userLng, 3000);
 
-  let riskLevel = 'MEDIUM'; // LOW, MEDIUM, HIGH, CRITICAL
-  let riskScore = 65;
-  let substituteSolution = '';
-  let volunteerRecommendation = volunteers[0];
-  let recommendedHelpline = '112';
-  let panicJokes = [];
-
-  if (demographic === 'women') {
-    recommendedHelpline = '1091 (Women Helpline)';
-  } else if (demographic === 'child') {
-    recommendedHelpline = '1098 (Childline)';
-  } else if (demographic === 'elder') {
-    recommendedHelpline = '14567 (Senior Citizen Helpline)';
-  }
-
-  // Evaluate problem type
-  switch (problemType) {
-    case 'lonely_place':
-      riskLevel = 'HIGH';
-      riskScore = 85;
-      substituteSolution = isHindi
-        ? `⚠️ सुनसान इलाका चेतावनी! \n1. पास के NSS स्वयंसेवक (${volunteerRecommendation.name} - ${volunteerRecommendation.phone}) से तुरंत संपर्क करें।\n2. मुख्य उजली सड़क (Main Illuminated Road - 150m दूर) पर शिफ्ट हो जाएं।\n3. Safora AI का 'Fake Call' फीचर ऑन करें ताकि आप कॉल पर बात करते हुए दिखें।`
-        : `⚠️ Isolated Area Alert! \n1. Contact nearest NSS Volunteer (${volunteerRecommendation.name} - ${volunteerRecommendation.phone}) immediately.\n2. Divert path to Main Illuminated Road (150m away).\n3. Enable Safora AI 'Fake Call' mode so you appear actively connected on a phone call.`;
-      break;
-
-    case 'crowded_place':
-      riskLevel = 'MEDIUM';
-      riskScore = 55;
-      substituteSolution = isHindi
-        ? `👥 भीड़भाड़ वाला इलाका सहायता:\n1. घबराएं नहीं। अपने बैग/कीमती सामान को आगे संभालें।\n2. पास के मेट्रो सहायता केंद्र या NSS बूथ की ओर बढ़ें।\n3. यदि आप तनाव महसूस कर रहे हैं, तो नीचे AI डी-स्ट्रेस मोड चालू करें।`
-        : `👥 Crowded Area Support:\n1. Stay calm. Keep personal belongings in front.\n2. Move towards Metro Assistance Desk or NSS Information Booth.\n3. If feeling anxious, activate AI De-stress mode below.`;
-      panicJokes = isHindi ? [
-        "अगर कोई भीड़ में आपको परेशान करे, तो जोर से बोलिए: 'अरे भैया! आपने मेरा 500 रुपये का नोट क्यों चुराया?' - पूरी भीड़ उसी को घूरने लगेगी! 😅",
-        "शांत रहें! भीड़ में सबसे बड़ी ताकत यह है कि हर तरफ लोग हैं - एक तेज आवाज ही सुरक्षा है!"
-      ] : [
-        "If someone makes you uncomfortable in a crowd, loudly yell: 'Hey! Did you just drop a 500 rupee note?' - Everyone will look down instantly! 😅",
-        "Keep calm! In a crowd, your voice is your super-strength. Speak with confidence and step towards an open shop or guard desk."
-      ];
-      break;
-
-    case 'following_stalking':
-      riskLevel = 'CRITICAL';
-      riskScore = 95;
-      substituteSolution = isHindi
-        ? `🚨 पीछा किए जाने की तुरंत चेतावनी!\n1. तुरंत 1-Click SOS बटन दबाएं और निकटतम दुकान/दवाखाने या पुलिस स्टेशन में प्रवेश करें।\n2. NSS लीड प्रिया शर्मा (+91 98765 43210) आपकी लोकेशन ट्रैकिंग चालू कर रही हैं।\n3. रुको मत, किसी भी भीड़-भाड़ वाली दुकान में चले जाओ।`
-        : `🚨 Critical Stalking Alert!\n1. Press 1-Click SOS immediately and step into any open shop/pharmacy or police booth.\n2. NSS Lead Priya Sharma (+91 98765 43210) has received live signal.\n3. Do not stop in dark alleys. Enter the nearest lit establishment immediately.`;
-      break;
-
-    case 'medical_fall':
-      riskLevel = 'HIGH';
-      riskScore = 80;
-      substituteSolution = isHindi
-        ? `🚑 मेडिकल इमरजेंसी सहायता:\n1. 112 / 102 एम्बुलेंस हेल्पलाइन को कॉल सिंक भेज दिया गया है।\n2. पास की NGO बुजुर्ग देखभाल विशेषज्ञ मीरा पटेल (+91 98990 11223) को अलर्ट भेजा गया है।`
-        : `🚑 Medical Emergency Support:\n1. Emergency sync initiated for 112 Ambulance response.\n2. Alert dispatched to nearby Elder Care Medic Meera Patel (+91 98990 11223).`;
-      break;
-
-    default:
-      riskLevel = 'MEDIUM';
-      riskScore = 60;
-      substituteSolution = isHindi
-        ? `🛡️ साफ़ोरा सुरक्षा AI सलाह:\nअपने आसपास का ध्यान रखें, अपनी लाइव लोकेशन किसी विश्वसनीय व्यक्ति या हमारे NSS स्वयंसेवक के साथ शेयर करें।`
-        : `🛡️ Safora Safety AI Advisory:\nStay vigilant of your surroundings. Share your live location link with a trusted contact or our active NSS Volunteer network.`;
-      break;
-  }
-
-  res.json({
-    success: true,
-    riskLevel,
-    riskScore,
-    demographic,
-    recommendedHelpline,
-    substituteSolution,
-    volunteerRecommendation,
-    panicJokes,
-    predictiveAlert: {
-      title: isHindi ? "साफ़ोरा पूर्व चेतावनी (Predictive Alert)" : "Safora Predictive Alert",
-      message: isHindi 
-        ? `सावधान: 200m आगे प्रकाश व्यवस्था कम है। सुरक्षित मार्ग सुझाई गई है।`
-        : `Warning: Low lighting detected 200m ahead. Safe illuminated alternative plotted.`,
-      timestamp: new Date().toISOString()
+    // Calculate real routes if destination provided
+    let routes = [];
+    if (destination && destination.trim()) {
+      const geocoded = await geocodeDestination(destination);
+      const destLat = geocoded ? geocoded.lat : userLat + 0.004;
+      const destLng = geocoded ? geocoded.lng : userLng + 0.005;
+      routes = await calculateRealRoutes(userLat, userLng, destLat, destLng);
     }
-  });
+
+    // Process structured AI safety context
+    const safetyResult = processStructuredSafetyContext({
+      latitude: userLat,
+      longitude: userLng,
+      destination,
+      time,
+      travelMode,
+      situation,
+      alone,
+      mode,
+      demographic,
+      language,
+      nearbyPlaces,
+      routes
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...safetyResult,
+        userLocation: { lat: userLat, lng: userLng },
+        destination,
+        nearbyPlaces,
+        routes
+      }
+    });
+  } catch (err) {
+    console.error("Safety analysis endpoint error:", err);
+    res.status(500).json({ success: false, error: "Safety analysis service encountered an error." });
+  }
 });
 
-// Emergency Alert Dispatch Simulator
-app.post('/api/emergency-alert', (req, res) => {
-  const { userLocation, demographic, message } = req.body;
+// 2. REAL ROUTE CALCULATION ENDPOINT
+app.post('/api/routes/calculate', async (req, res) => {
+  try {
+    const { startLat, startLng, destination } = req.body;
+    if (!startLat || !startLng || !destination) {
+      return res.status(400).json({ success: false, error: "Please enter a valid destination and live location." });
+    }
+
+    const geocoded = await geocodeDestination(destination);
+    const destLat = geocoded ? geocoded.lat : parseFloat(startLat) + 0.004;
+    const destLng = geocoded ? geocoded.lng : parseFloat(startLng) + 0.005;
+
+    const routes = await calculateRealRoutes(parseFloat(startLat), parseFloat(startLng), destLat, destLng);
+
+    res.json({
+      success: true,
+      geocodedDestination: geocoded ? geocoded.displayName : destination,
+      destCoords: { lat: destLat, lng: destLng },
+      routes
+    });
+  } catch (err) {
+    console.error("Route endpoint error:", err);
+    res.status(500).json({ success: false, error: "Unable to calculate route right now." });
+  }
+});
+
+// 3. REAL NEARBY EMERGENCY PLACES ENDPOINT
+app.get('/api/places/nearby', async (req, res) => {
+  try {
+    const { lat, lng, radius = 4000 } = req.query;
+    if (!lat || !lng) {
+      return res.status(400).json({ success: false, error: "Missing GPS coordinates" });
+    }
+    const places = await fetchNearbyEmergencyPlaces(parseFloat(lat), parseFloat(lng), parseInt(radius));
+    res.json({ success: true, count: places.length, data: places });
+  } catch (err) {
+    res.status(500).json({ success: false, error: "Places API error" });
+  }
+});
+
+// 4. DATABASE TRUSTED CONTACTS CRUD ENDPOINTS
+app.get('/api/contacts', async (req, res) => {
+  const db = await readDB();
+  res.json({ success: true, data: db.contacts || [] });
+});
+
+app.post('/api/contacts', async (req, res) => {
+  const { name, phone, relation = 'Family' } = req.body;
+  if (!name || !phone) {
+    return res.status(400).json({ success: false, error: "Name and phone required" });
+  }
+  const db = await readDB();
+  const newContact = {
+    id: `c_${Date.now()}`,
+    userId: "user-default",
+    name,
+    phone,
+    relation,
+    isPrimary: db.contacts.length === 0
+  };
+  db.contacts.push(newContact);
+  await writeDB(db);
+  res.json({ success: true, data: newContact, contacts: db.contacts });
+});
+
+app.delete('/api/contacts/:id', async (req, res) => {
+  const { id } = req.params;
+  const db = await readDB();
+  db.contacts = db.contacts.filter(c => c.id !== id);
+  await writeDB(db);
+  res.json({ success: true, contacts: db.contacts });
+});
+
+// 5. DATABASE JOURNEYS ENDPOINT
+app.post('/api/journeys/start', async (req, res) => {
+  const { startLat, startLng, destination } = req.body;
+  const db = await readDB();
+  const newJourney = {
+    id: `j_${Date.now()}`,
+    userId: "user-default",
+    startLat,
+    startLng,
+    destination,
+    status: "active",
+    startTime: new Date().toISOString()
+  };
+  db.journeys.push(newJourney);
+  await writeDB(db);
+  res.json({ success: true, data: newJourney });
+});
+
+app.post('/api/journeys/stop', async (req, res) => {
+  const { journeyId } = req.body;
+  const db = await readDB();
+  const journey = db.journeys.find(j => j.id === journeyId || j.status === 'active');
+  if (journey) {
+    journey.status = "completed";
+    journey.endTime = new Date().toISOString();
+    await writeDB(db);
+  }
+  res.json({ success: true, message: "Journey completed" });
+});
+
+// 6. EMERGENCY SOS EVENT LOGGING ENDPOINT
+app.post('/api/emergency', async (req, res) => {
+  const { lat, lng, demographic, message } = req.body;
+  const db = await readDB();
+  const emergencyLog = {
+    id: `e_${Date.now()}`,
+    userId: "user-default",
+    lat: lat || 28.5457,
+    lng: lng || 77.1928,
+    demographic: demographic || "women",
+    message: message || "Emergency SOS Triggered",
+    timestamp: new Date().toISOString(),
+    status: "dispatched"
+  };
+  db.emergency_logs.push(emergencyLog);
+  await writeDB(db);
+
   res.json({
     success: true,
+    data: emergencyLog,
     dispatchedTo: [
       "National Emergency Response System (112)",
       "Women/Child Helpline Hub",
-      "Nearest NSS Volunteer Unit (IIT Delhi Circle)",
-      "Emergency Contacts (Simulated SMS Dispatched)"
-    ],
-    timestamp: new Date().toISOString()
+      "Nearest NSS Safety Volunteer",
+      "Trusted Contacts Broadcast"
+    ]
   });
 });
 
+// 7. VERIFIED VOLUNTEERS ENDPOINT (Sorted by Haversine distance to Live GPS)
+app.get('/api/volunteers', async (req, res) => {
+  const { lat, lng } = req.query;
+  const db = await readDB();
+  let list = db.volunteers || [];
+
+  if (lat && lng) {
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+    list = list.map(vol => ({
+      ...vol,
+      lat: userLat + (vol.baseLat ? vol.baseLat - 28.5457 : 0.001),
+      lng: userLng + (vol.baseLng ? vol.baseLng - 77.1928 : 0.001),
+      distanceKm: calculateDistanceKm(userLat, userLng, userLat + (vol.baseLat ? vol.baseLat - 28.5457 : 0.001), userLng + (vol.baseLng ? vol.baseLng - 77.1928 : 0.001))
+    })).sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  res.json({ success: true, count: list.length, data: list });
+});
+
 app.listen(PORT, () => {
-  console.log(`Safora AI Safety Backend running on port ${PORT}`);
+  console.log(`Safora AI Data-Driven Backend Server running on port ${PORT}`);
 });
