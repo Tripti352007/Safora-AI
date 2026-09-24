@@ -18,8 +18,8 @@ import VoiceAssistantModal from './components/VoiceAssistantModal';
 import NotificationBanner from './components/NotificationBanner';
 
 import { analyzeContextualSafety } from './utils/aiEngine';
-import mockVolunteers from '../server/data/volunteers.json';
-import mockSafeZones from '../server/data/safeZones.json';
+import mockVolunteers from '../../server/data/volunteers.json';
+import mockSafeZones from '../../server/data/safeZones.json';
 
 function MainApp() {
   const { t, lang } = useLanguage();
